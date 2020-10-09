@@ -13,6 +13,8 @@ import (
 type Handler struct {
 	router  *mux.Router
 	storage Storage
+
+	address string
 }
 
 func (h *Handler) initialise(s Storage) {
@@ -24,10 +26,11 @@ func (h *Handler) initialise(s Storage) {
 
 func (h *Handler) initialiseRoutes() {
 	h.router.HandleFunc("/url/{url}", h.postURL).Methods("POST")
-	h.router.HandleFunc("/{key}", h.postURL).Methods("GET")
+	h.router.HandleFunc("/{key}", h.getURL).Methods("GET")
 }
 
-func (h Handler) run(addr string) {
+func (h *Handler) run(addr string) {
+	h.address = addr
 	srv := &http.Server{
 		Handler: h.router,
 		Addr:    addr,
@@ -42,15 +45,19 @@ func (h Handler) postURL(w http.ResponseWriter, r *http.Request) {
 
 	u, err := url.ParseRequestURI(rURL)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, fmt.Sprintf("not a url: %s", rURL))
+		respondWithError(w, http.StatusBadRequest, fmt.Sprintf("not a url: %s example: http://google.com", rURL))
+		return
 	}
 
-	if err := h.storage.Set(GenerateString(10, charset), u.String()); err != nil {
+	shortURL := GenerateString(10, charset)
+
+	if err := h.storage.Set(shortURL, u.String()); err != nil {
 		log.Println(err.Error())
 		respondWithError(w, http.StatusInternalServerError, "something went wrong")
+		return
 	}
 
-	respondWithJSON(w, http.StatusCreated, nil)
+	respondWithJSON(w, http.StatusCreated, Response{Message: fmt.Sprintf("%s/%s", h.address, shortURL)})
 }
 
 func (h Handler) getURL(w http.ResponseWriter, r *http.Request) {
@@ -58,9 +65,18 @@ func (h Handler) getURL(w http.ResponseWriter, r *http.Request) {
 	key := vars["key"]
 
 	foundURL := h.storage.Get(key)
-	if foundURL == "" {
+
+	if foundURL != "" {
 		respondWithRedirect(w, r, foundURL)
+		return
 	}
+
+	respondWithError(w, http.StatusNotFound, fmt.Sprintf("not found %s", key))
+}
+
+// Response for json response
+type Response struct {
+	Message interface{} `json:"message"`
 }
 
 func respondWithError(w http.ResponseWriter, code int, message string) {
@@ -76,5 +92,6 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 }
 
 func respondWithRedirect(w http.ResponseWriter, r *http.Request, redirect string) {
-	http.Redirect(w, r, redirect, http.StatusPermanentRedirect)
+	fmt.Println(redirect, "...")
+	http.Redirect(w, r, redirect, http.StatusMovedPermanently)
 }

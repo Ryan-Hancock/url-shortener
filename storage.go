@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -35,26 +34,31 @@ func NewDB(uri string) urlDB {
 }
 
 func (u urlDB) Set(key string, value string) error {
-	if key != "" || value != "" {
-		return fmt.Errorf("Key/Value is empty")
+	if key == "" || value == "" {
+		return fmt.Errorf("Key || Value is empty")
 	}
 
-	_, err := u.db.NamedExec(`INSERT INTO urls (key, url) VALUES (:key,:url)`,
+	res, err := u.db.NamedExec(`INSERT INTO urls (key, url) VALUES (:key,:url)`,
 		map[string]interface{}{
 			"key": key,
 			"url": value,
 		})
-
 	if err != nil {
-		log.Printf("Set error %v", err.Error())
+		return err
+	}
+
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("no rows affected")
 	}
 
 	return nil
 }
 
 func (u urlDB) Get(key string) string {
+	row := u.db.QueryRow("SELECT url FROM urls WHERE `key`=$1", key)
 	var url string
-	_ = u.db.Get(&url, "SELECT url FROM urls WHERE key=$1", key)
+	row.Scan(&url)
 
 	return url
 }

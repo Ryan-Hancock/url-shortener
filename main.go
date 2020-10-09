@@ -4,7 +4,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-const dbURI = ":memory:"
+const dbURI = "./url.db"
 
 func main() {
 	db := NewDB(dbURI)
