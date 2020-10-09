@@ -1,12 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/jmoiron/sqlx"
 )
-
-const url_db = "./url.db"
 
 // Storage interface
 type Storage interface {
@@ -18,27 +17,31 @@ type urlDB struct {
 	db *sqlx.DB
 }
 
-var schema = `CREATE TABLE urls (
+var schema = `CREATE TABLE IF NOT EXISTS urls (
     key varchar(10) NOT NULL PRIMARY KEY,
 	url text NOT NULL);`
 
-func openDB() *sqlx.DB {
-	db := sqlx.MustConnect("sqlite3", url_db)
+func openDB(uri string) *sqlx.DB {
+	db := sqlx.MustConnect("sqlite3", uri)
 	db.MustExec(schema)
 
 	return db
 }
 
-func NewDB() *urlDB {
-	return &urlDB{
-		db: openDB(),
+func NewDB(uri string) urlDB {
+	return urlDB{
+		db: openDB(uri),
 	}
 }
 
 func (u urlDB) Set(key string, value string) error {
+	if key != "" || value != "" {
+		return fmt.Errorf("Key/Value is empty")
+	}
+
 	_, err := u.db.NamedExec(`INSERT INTO urls (key, url) VALUES (:key,:url)`,
 		map[string]interface{}{
-			"key":          key,
+			"key": key,
 			"url": value,
 		})
 
