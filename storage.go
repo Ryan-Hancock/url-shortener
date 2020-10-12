@@ -27,7 +27,7 @@ func openDB(uri string) *sqlx.DB {
 	return db
 }
 
-func NewDB(uri string) urlDB {
+func newDB(uri string) urlDB {
 	return urlDB{
 		db: openDB(uri),
 	}
